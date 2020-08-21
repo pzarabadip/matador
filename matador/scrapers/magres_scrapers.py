@@ -120,4 +120,4 @@ def magres2dict(fname, **kwargs):
                     magres['calculator_version'] = flines[line_no+i].split()[1]
                 i += 1
 
-    return magres, True
+    return dict(magres), True
