@@ -1,8 +1,13 @@
-from typing import Dict, List
+# coding: utf-8
+# Distributed under the terms of the MIT license.
+
+from typing import Dict, List, Optional
 import numpy as np
 
 from matador.plotting.plotting import plotting_function
 from matador.crystal import Crystal
+
+__all__ = ("MagresReferencer", )
 
 
 class MagresReferencer:
@@ -10,15 +15,15 @@ class MagresReferencer:
 
     def __init__(
         self,
-        structures: List[Crystal],
         structures_exp: List[Crystal],
         shifts_exp: List[Dict[str, List[float]]],
         species: str,
+        structures: Optional[List[Crystal]] = None,
     ):
-        self.structures = structures
         self.structures_exp = structures_exp
         self.shifts_exp = shifts_exp
         self.species = species
+        self.structures = structures
 
         self._calc_shifts = []
         self._expt_shifts = []
@@ -26,15 +31,15 @@ class MagresReferencer:
         self._fit_structures = []
         self._fitted = False
 
-        self.assign_experimental_shifts()
+        for structure, shifts in zip(self.structures_exp, self.shifts_exp):
+            self.match_exp_structure_shifts(structure, shifts[self.species])
+
         self.fit()
 
-    def assign_experimental_shifts(self):
-        for structure, shifts in zip(self.structures_exp, self.shifts_exp):
-            self.assign_structure_shifts(structure, shifts[self.species])
+        if self.structures is not None:
+            self.structures = self.set_shifts_from_fit(self.structures)
 
-    def assign_structure_shifts(self, structure, shifts):
-        print(structure)
+    def match_exp_structure_shifts(self, structure, shifts):
         relevant_sites = [site for site in structure if site.species == self.species]
         calc_shifts = sorted(
             [site["chemical_shielding_iso"] for site in relevant_sites]
@@ -61,6 +66,14 @@ class MagresReferencer:
         self._fit_structures.extend(len(_shifts) * [structure.formula_tex])
 
         return _shifts, _weights, calc_shifts
+
+    def set_shifts_from_fit(self, structures):
+        for ind, struc in enumerate(structures):
+            for jnd, site in enumerate(struc):
+                if site.species == self.species:
+                    structures[ind][jnd]["chemical_shift_iso"] = self.predict(site["chemical_shielding_iso"])
+
+        return structures
 
     def fit(self):
         import statsmodels.api as sm

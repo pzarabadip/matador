@@ -14,27 +14,24 @@ from matador.orm.orm import DataContainer
 class Site(DataContainer):
 
     def __init__(self, species: str, position: list, lattice_cart,
-                 position_unit='fractional', **site_data):
+                 position_unit='fractional', **_data):
 
-        if site_data.get('voronoi_substructure') is not None:
-            assert self.species == site_data['voronoi_substructure'][0]
-            site_data['voronoi_substructure'] = site_data['voronoi_substructure'][1]
+        if _data.get('voronoi_substructure') is not None:
+            assert self.species == _data['voronoi_substructure'][0]
+            _data['voronoi_substructure'] = _data['voronoi_substructure'][1]
 
         super().__init__(
             species=species,
             position=position,
             lattice_cart=lattice_cart,
-            **site_data
+            **_data
         )
 
         self.set_position(position, position_unit)
         self._occupancy = None
 
-        self.site_data = {}
-        self.site_data.update(site_data)
-
     def __getitem__(self, key):
-        """ Add extra look-up in `self.site_data` to
+        """ Add extra look-up in `self._data` to
         :class:`DataContainer`'s `__getitem__`.
 
         Parameters:
@@ -50,25 +47,25 @@ class Site(DataContainer):
             pass
 
         try:
-            return self.site_data[key]
+            return self._data[key]
         except KeyError:
-            raise KeyError('Site has no data/site_data or implementation for requested key: "{}"'
+            raise KeyError('Site has no data/_data or implementation for requested key: "{}"'
                            .format(key))
 
     def __str__(self):
         site_str = '{species} {pos[0]:4.4f} {pos[1]:4.4f} {pos[2]:4.4f}'.format(species=self.species, pos=self.coords)
-        for key in self.site_data:
-            try:
-                site_str += '\n{} = {:4.4f}'.format(key, float(self.site_data[key]))
-            except ValueError:
-                site_str += '\n{} = {}'.format(key, self.site_data[key])
+        for key in self._data:
+            if key not in ("species", "lattice_cart", "position"):
+                try:
+                    site_str += '\n{} = {:4.4f}'.format(key, float(self._data[key]))
+                except (ValueError, TypeError):
+                    site_str += '\n{} = {}'.format(key, self._data[key])
         return site_str
 
     def __deepcopy__(self, memo):
         from copy import deepcopy
-        species, position, lattice = (deepcopy(x) for x in (self.species, self._coords['fractional'], self.lattice))
-        site_data = deepcopy(self.site_data)
-        return Site(species, position, lattice, position_unit='fractional', **site_data)
+        _data = deepcopy(self._data)
+        return Site(**_data)
 
     def set_position(self, position, units):
         if len(position) != 3 or not all(isinstance(p, (float, int)) for p in position):
